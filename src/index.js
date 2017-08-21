@@ -3,33 +3,27 @@ import { render } from 'react-dom';
 import { Provider } from 'react-redux';
 import PouchDb from 'pouchdb';
 import configureStore from './store';
+import { syncRemote } from './lib/pouchActions';
 import App from './component/App';
 import registerServiceWorker from './registerServiceWorker';
-import { loadTodos, todoAdded, todoDeleted } from './actions/todos';
 import './index.css';
 
 const db = PouchDb('todos');
-const store = configureStore({}, db);
+const pathStore = 'todos';
+const remoteCouch = 'http://admin:admin@localhost:5984/todos';
+const configSync = {
+  live: true,
+  retry: true,
+};
 
-const preLoadingTodos = () => db.allDocs({include_docs: true}).then(doc => store.dispatch(loadTodos(doc.rows)));
+syncRemote(db, remoteCouch, configSync);
 
-db.changes({ since: 'now', live: true, include_docs: true })
-  .on('change', change => {
-  const { id , doc } = change;
-  if (change.deleted) return store.dispatch(todoDeleted(id));
-  const todo = { [id]: doc };
-  return store.dispatch(todoAdded(id, todo));
-  }).on('error', err => {
-  console.log(err);  
-});
-
-preLoadingTodos();
+const store = configureStore({}, db, pathStore);
 
 const Root = () => (
-    <Provider store={store}>
-        <App />
-    </Provider>
-);
+  <Provider store={store}>
+    <App />
+  </Provider>);
 
 render(<Root />, document.getElementById('root'));
 registerServiceWorker();
